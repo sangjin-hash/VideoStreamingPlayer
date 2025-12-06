@@ -30,7 +30,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		E6D3DF432EE304A4004508B8 /* Exceptions for "ToyVideoStreamingPlayer" folder in "ToyVideoStreamingPlayer" target */ = {
+		E6F72B3E2EE4168800004302 /* Exceptions for "ToyVideoStreamingPlayer" folder in "ToyVideoStreamingPlayer" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -40,14 +40,6 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		E6D3DF1D2EE304A3004508B8 /* ToyVideoStreamingPlayer */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				E6D3DF432EE304A4004508B8 /* Exceptions for "ToyVideoStreamingPlayer" folder in "ToyVideoStreamingPlayer" target */,
-			);
-			path = ToyVideoStreamingPlayer;
-			sourceTree = "<group>";
-		};
 		E6D3DF342EE304A4004508B8 /* ToyVideoStreamingPlayerTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = ToyVideoStreamingPlayerTests;
@@ -56,6 +48,14 @@
 		E6D3DF3E2EE304A4004508B8 /* ToyVideoStreamingPlayerUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = ToyVideoStreamingPlayerUITests;
+			sourceTree = "<group>";
+		};
+		E6D3DF6B2EE3062E004508B8 /* ToyVideoStreamingPlayer */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				E6F72B3E2EE4168800004302 /* Exceptions for "ToyVideoStreamingPlayer" folder in "ToyVideoStreamingPlayer" target */,
+			);
+			path = ToyVideoStreamingPlayer;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -88,7 +88,7 @@
 		E6D3DF122EE304A3004508B8 = {
 			isa = PBXGroup;
 			children = (
-				E6D3DF1D2EE304A3004508B8 /* ToyVideoStreamingPlayer */,
+				E6D3DF6B2EE3062E004508B8 /* ToyVideoStreamingPlayer */,
 				E6D3DF342EE304A4004508B8 /* ToyVideoStreamingPlayerTests */,
 				E6D3DF3E2EE304A4004508B8 /* ToyVideoStreamingPlayerUITests */,
 				E6D3DF1C2EE304A3004508B8 /* Products */,
@@ -121,7 +121,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				E6D3DF1D2EE304A3004508B8 /* ToyVideoStreamingPlayer */,
+				E6D3DF6B2EE3062E004508B8 /* ToyVideoStreamingPlayer */,
 			);
 			name = ToyVideoStreamingPlayer;
 			packageProductDependencies = (
@@ -296,6 +296,7 @@
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -323,6 +324,7 @@
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
