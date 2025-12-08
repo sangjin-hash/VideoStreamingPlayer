@@ -24,13 +24,41 @@ class VideoPlayerViewController: UIViewController, UIGestureRecognizerDelegate {
     @IBOutlet weak var backgroundBar: UIView!
     @IBOutlet weak var bufferedBar: UIView!
     @IBOutlet weak var progressBar: UIView!
-    
     @IBOutlet weak var bufferedBarWidthConstraint: NSLayoutConstraint!
     @IBOutlet weak var progressBarWidthConstraint: NSLayoutConstraint!
     
     // Gestures
     @IBOutlet weak var videoContainerTapGesture: UITapGestureRecognizer!
     @IBOutlet weak var seekBarTapGesture: UITapGestureRecognizer!
+    
+    // VideoContainer Constraints
+    @IBOutlet weak var videoContainerView: UIView!
+    
+    // orientation 변경 시 isActive = false 로 인해 nil이 되므로 강한 관계 설정
+    private var centerYConstraint: NSLayoutConstraint!
+    private var topConstraint: NSLayoutConstraint!
+    private var bottomConstraint: NSLayoutConstraint!
+    
+    @IBOutlet weak var videoContainerCenterYConstraint: NSLayoutConstraint! {
+        didSet {
+            centerYConstraint = videoContainerCenterYConstraint
+        }
+    }
+    
+    @IBOutlet weak var videoContainerLeadingConstraint: NSLayoutConstraint!
+    @IBOutlet weak var videoContainerTrailingConstraint: NSLayoutConstraint!
+    
+    @IBOutlet weak var videoContainerTopConstraint: NSLayoutConstraint! {
+        didSet {
+            topConstraint = videoContainerTopConstraint
+        }
+    }
+    
+    @IBOutlet weak var videoContainerBottomConstraint: NSLayoutConstraint! {
+        didSet {
+            bottomConstraint = videoContainerBottomConstraint
+        }
+    }
     
     // MARK: - Managers
     private let streamPlayerManager = StreamPlayerManager()
@@ -49,6 +77,21 @@ class VideoPlayerViewController: UIViewController, UIGestureRecognizerDelegate {
     // SeekBar interaction state
     private var isSeeking = false
     
+    // Fullscreen state
+    private var isFullscreen = false
+    
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        return .allButUpsideDown
+    }
+    
+    override var prefersStatusBarHidden: Bool {
+        return isFullscreen
+    }
+    
+    override var preferredStatusBarUpdateAnimation: UIStatusBarAnimation {
+        return .fade
+    }
+    
     // MARK: - Lifecycle
     
     override func viewDidLoad() {
@@ -60,12 +103,33 @@ class VideoPlayerViewController: UIViewController, UIGestureRecognizerDelegate {
         
         videoContainerTapGesture.require(toFail: seekBarTapGesture)
         seekBarTapGesture.delegate = self
+        
+        // Initial Orientation: portrait
+        topConstraint.isActive = false
+        bottomConstraint.isActive = false
+        centerYConstraint.isActive = true
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+    }
+    
+    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+        super.viewWillTransition(to: size, with: coordinator)
         
-        // Orientation 설정 (추후 구현)
+        let isLandscape = size.width > size.height
+        
+        coordinator.animate(alongsideTransition: { _ in
+            if isLandscape {
+                self.enterFullscreen(animated: false)
+            } else {
+                self.exitFullscreen(animated: false)
+            }
+        })
     }
     
     // MARK: - Setup
@@ -75,7 +139,7 @@ class VideoPlayerViewController: UIViewController, UIGestureRecognizerDelegate {
         controlPanelView.alpha = 1.0
         isControlPanelVisible = true
         
-        // SeekBar 초기 상태
+        // SeekBar Initial State
         currentTimeLabel.text = "00:00"
         totalTimeLabel.text = "00:00"
         progressBarWidthConstraint.constant = 0
@@ -95,11 +159,86 @@ class VideoPlayerViewController: UIViewController, UIGestureRecognizerDelegate {
         playerView.player = streamPlayerManager.player
     }
     
+    // MARK: - Fullscreen Management
+    
+    private func enterFullscreen(animated: Bool) {
+        guard !isFullscreen else { return }
+        
+        isFullscreen = true
+        
+        // Portrait -> Landscape
+        centerYConstraint.isActive = false
+        topConstraint.isActive = true
+        bottomConstraint.isActive = true
+        
+        // Transition animation
+        if animated {
+            UIView.animate(withDuration: 0.3) {
+                self.view.layoutIfNeeded()
+                self.setNeedsStatusBarAppearanceUpdate()
+            }
+        } else {
+            view.layoutIfNeeded()
+            setNeedsStatusBarAppearanceUpdate()
+        }
+    }
+    
+    private func exitFullscreen(animated: Bool) {
+        guard isFullscreen else { return }
+        
+        isFullscreen = false
+        
+        // Landscape -> Portrait
+        topConstraint.isActive = false
+        bottomConstraint.isActive = false
+        centerYConstraint.isActive = true
+        
+        // Transition animation
+        if animated {
+            UIView.animate(withDuration: 0.3) {
+                self.view.layoutIfNeeded()
+                self.setNeedsStatusBarAppearanceUpdate()
+            }
+        } else {
+            view.layoutIfNeeded()
+            setNeedsStatusBarAppearanceUpdate()
+        }
+    }
+    
+    private func toggleFullscreen() {
+        if isFullscreen {
+            rotateToPortrait()
+        } else {
+            rotateToLandscape()
+        }
+    }
+    
+    private func rotateToLandscape() {
+        if #available(iOS 16.0, *) {
+            guard let windowScene = view.window?.windowScene else { return }
+            windowScene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscapeRight))
+        } else {
+            let value = UIInterfaceOrientation.landscapeRight.rawValue
+            UIDevice.current.setValue(value, forKey: "orientation")
+            UIViewController.attemptRotationToDeviceOrientation()
+        }
+    }
+    
+    private func rotateToPortrait() {
+        if #available(iOS 16.0, *) {
+            guard let windowScene = view.window?.windowScene else { return }
+            windowScene.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait))
+        } else {
+            let value = UIInterfaceOrientation.portrait.rawValue
+            UIDevice.current.setValue(value, forKey: "orientation")
+            UIViewController.attemptRotationToDeviceOrientation()
+        }
+    }
+    
     // MARK: - Gesture Delegate
 
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
                            shouldReceive touch: UITouch) -> Bool {
-
         if gestureRecognizer === seekBarTapGesture {
             let point = touch.location(in: backgroundBar)
             if backgroundBar.bounds.contains(point) {
@@ -112,7 +251,6 @@ class VideoPlayerViewController: UIViewController, UIGestureRecognizerDelegate {
 
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
                            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        // SeekBar 탭 제스처는 항상 동시 인식 허용
         if gestureRecognizer === seekBarTapGesture {
             return true
         }
@@ -130,7 +268,7 @@ class VideoPlayerViewController: UIViewController, UIGestureRecognizerDelegate {
     private func scheduleHideControls() {
         hideControlsWorkItem?.cancel()
         
-        // 3초 후 숨김
+        // Hide after 3 second
         let workItem = DispatchWorkItem { [weak self] in
             self?.isControlPanelVisible = false
         }
@@ -197,7 +335,6 @@ class VideoPlayerViewController: UIViewController, UIGestureRecognizerDelegate {
 // MARK: - IBActions
 
 extension VideoPlayerViewController {
-    
     // MARK: - SeekBar Gestures
     
     @IBAction func handleSeekBarTap(_ gesture: UITapGestureRecognizer) {
@@ -255,14 +392,10 @@ extension VideoPlayerViewController {
         }
     }
     
-    // MARK: - Other Controls
-    
-    @IBAction func moreDidTap(_ sender: Any) {
-        // TODO: 화질 선택 화면 (추후 구현)
-    }
+    // MARK: - Expand Button
     
     @IBAction func expandDidTap(_ sender: Any) {
-        // TODO: 화면 전환 (추후 구현)
+        toggleFullscreen()
     }
 }
 
