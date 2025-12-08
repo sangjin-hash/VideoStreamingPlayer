@@ -12,10 +12,10 @@ import AVKit
 class VideoPlayerViewController: UIViewController, UIGestureRecognizerDelegate {
     
     // MARK: - IBOutlets
-    
     @IBOutlet weak var playerView: PlayerView!
     @IBOutlet weak var controlPanelView: UIView!
     @IBOutlet weak var playButton: UIButton!
+    @IBOutlet weak var loadingIndicator: UIActivityIndicatorView!
     
     // SeekBar Components
     @IBOutlet weak var seekBarContainerView: UIView!
@@ -138,7 +138,7 @@ class VideoPlayerViewController: UIViewController, UIGestureRecognizerDelegate {
         view.backgroundColor = .black
         controlPanelView.alpha = 1.0
         isControlPanelVisible = true
-        
+
         // SeekBar Initial State
         currentTimeLabel.text = "00:00"
         totalTimeLabel.text = "00:00"
@@ -409,30 +409,56 @@ extension VideoPlayerViewController: StreamPlayerManagerDelegate {
     
     func playerStateDidChange(state: PlaybackState) {
         switch state {
+        case .loading:
+            loadingIndicator.startAnimating()
+            loadingIndicator.isHidden = false
+            playButton.isHidden = true
+
         case .readyToPlay:
+            loadingIndicator.stopAnimating()
+            loadingIndicator.isHidden = true
+            playButton.isHidden = false
+
             let duration = streamPlayerManager.duration
             totalTimeLabel.text = formatTime(duration)
-            
+
             streamPlayerManager.play()
             updatePlayButtonImage(isPlaying: true)
-            
+
             scheduleHideControls()
-            
+
         case .playing:
+            loadingIndicator.stopAnimating()
+            loadingIndicator.isHidden = true
+            playButton.isHidden = false
             updatePlayButtonImage(isPlaying: true)
-            
+
         case .paused:
+            loadingIndicator.stopAnimating()
+            loadingIndicator.isHidden = true
+            playButton.isHidden = false
             updatePlayButtonImage(isPlaying: false)
             hideControlsWorkItem?.cancel()
-            
+
+        case .buffering:
+            loadingIndicator.startAnimating()
+            loadingIndicator.isHidden = false
+            playButton.isHidden = true
+
         case .ended:
+            loadingIndicator.stopAnimating()
+            loadingIndicator.isHidden = true
+            playButton.isHidden = false
             updatePlayButtonImage(isPlaying: false)
             hideControlsWorkItem?.cancel()
             isControlPanelVisible = true
-            
+
         case .failed(let error):
+            loadingIndicator.stopAnimating()
+            loadingIndicator.isHidden = true
+            playButton.isHidden = false
             print("Error: \(error.localizedDescription)")
-            
+
         default:
             break
         }

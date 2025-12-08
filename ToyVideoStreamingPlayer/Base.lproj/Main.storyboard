@@ -28,6 +28,10 @@
                                     <view contentMode="scaleToFill" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="QVP-0Z-ze0">
                                         <rect key="frame" x="0.0" y="0.0" width="393" height="221"/>
                                         <subviews>
+                                            <activityIndicatorView opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" fixedFrame="YES" style="medium" translatesAutoresizingMaskIntoConstraints="NO" id="5Fj-TG-Ryt">
+                                                <rect key="frame" x="186" y="100" width="20" height="20"/>
+                                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                                            </activityIndicatorView>
                                             <button opaque="NO" contentMode="scaleToFill" ambiguous="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="5bF-eP-eNt">
                                                 <rect key="frame" x="176.66666666666666" y="90.666666666666686" width="40" height="40"/>
                                                 <constraints>
@@ -201,6 +205,7 @@
                         <outlet property="bufferedBarWidthConstraint" destination="3tQ-Me-CGp" id="sn9-gW-d6e"/>
                         <outlet property="controlPanelView" destination="QVP-0Z-ze0" id="Sqc-ZG-JsF"/>
                         <outlet property="currentTimeLabel" destination="Dg5-Nh-994" id="F8o-Ec-rb7"/>
+                        <outlet property="loadingIndicator" destination="5Fj-TG-Ryt" id="lbP-tE-9Mq"/>
                         <outlet property="playButton" destination="5bF-eP-eNt" id="ec4-uT-1hm"/>
                         <outlet property="playerView" destination="Hte-CM-hzy" id="vAG-LN-29G"/>
                         <outlet property="progressBar" destination="Fmt-yX-Ynm" id="HWy-9a-37F"/>

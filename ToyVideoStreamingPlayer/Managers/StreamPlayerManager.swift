@@ -59,19 +59,31 @@ class StreamPlayerManager {
     
     func loadStream(url: URL) {
         cleanup()
-        
         currentState = .loading
-        
+
         let asset = AVURLAsset(url: url)
         playerItem = AVPlayerItem(asset: asset)
         player = AVPlayer(playerItem: playerItem)
-        
+
+        // ABR 최적화 설정
+        if let player = player {
+            // 자동으로 stalling 최소화 (버퍼링 개선)
+            player.automaticallyWaitsToMinimizeStalling = true
+        }
+
         setupObservers()
     }
     
     func play() {
+        guard let playerItem = playerItem else { return }
+
         player?.play()
-        currentState = .playing
+
+        if playerItem.isPlaybackLikelyToKeepUp {
+            currentState = .playing
+        } else {
+            currentState = .buffering
+        }
     }
     
     func pause() {
@@ -146,13 +158,27 @@ class StreamPlayerManager {
             }
         }
         
-        // Buffer Observer
+        // Buffer Observer - 버퍼 상태 및 UI 업데이트
         bufferObservation = playerItem.observe(\.loadedTimeRanges, options: [.new]) { [weak self] item, _ in
             guard let self = self else { return }
-            
+
+            // 1. UI 업데이트 - 버퍼링 seekbar 표시
             if let timeRange = item.loadedTimeRanges.first?.timeRangeValue {
                 let bufferedTime = timeRange.start.seconds + timeRange.duration.seconds
                 self.delegate?.playerDidUpdateBuffer(bufferedTime: bufferedTime)
+            }
+
+            // 2. 상태 관리 - 버퍼링 상태 체크
+            let isPlayingOrBuffering = self.currentState == .playing || self.currentState == .buffering
+
+            if !item.isPlaybackLikelyToKeepUp && isPlayingOrBuffering {
+                // 버퍼가 부족하면 buffering 상태로 전환
+                self.currentState = .buffering
+            } else if item.isPlaybackLikelyToKeepUp && self.currentState == .buffering {
+                // 버퍼링이 완료되면 playing 상태로 복귀 (재생 중이었다면)
+                if self.player?.rate != 0 {
+                    self.currentState = .playing
+                }
             }
         }
     }
@@ -171,20 +197,17 @@ class StreamPlayerManager {
     }
     
     private func cleanup() {
-        // Time Observer 제거
         if let token = timeObserverToken {
             player?.removeTimeObserver(token)
             timeObserverToken = nil
         }
         
-        // KVO 제거
         statusObservation?.invalidate()
         statusObservation = nil
-        
+
         bufferObservation?.invalidate()
         bufferObservation = nil
         
-        // Player 정리
         player?.pause()
         player = nil
         playerItem = nil

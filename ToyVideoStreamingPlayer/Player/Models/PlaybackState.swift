@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum PlaybackState {
+enum PlaybackState: Equatable {
     case idle
     case loading
     case readyToPlay
@@ -16,4 +16,21 @@ enum PlaybackState {
     case buffering
     case ended
     case failed(Error)
+
+    static func == (lhs: PlaybackState, rhs: PlaybackState) -> Bool {
+        switch (lhs, rhs) {
+        case (.idle, .idle),
+             (.loading, .loading),
+             (.readyToPlay, .readyToPlay),
+             (.playing, .playing),
+             (.paused, .paused),
+             (.buffering, .buffering),
+             (.ended, .ended):
+            return true
+        case (.failed(let lhsError), .failed(let rhsError)):
+            return lhsError.localizedDescription == rhsError.localizedDescription
+        default:
+            return false
+        }
+    }
 }
