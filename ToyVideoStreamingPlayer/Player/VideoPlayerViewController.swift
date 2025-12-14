@@ -149,14 +149,30 @@ class VideoPlayerViewController: UIViewController, UIGestureRecognizerDelegate {
     private func setupManagers() {
         streamPlayerManager.delegate = self
     }
-    
+
     private func loadTestVideo() {
-        guard let url = URL(string: testStreamURL) else {
-            return
+        Task {
+            do {
+                guard let masterURL = URL(string: testStreamURL) else {
+                    return
+                }
+
+                // Custom HLS 스트림 로드
+                try await streamPlayerManager.loadCustomHLS(
+                    masterURL: masterURL,
+                    bandwidth: 3_000_000
+                )
+
+                // PlayerView에 player 설정
+                await MainActor.run {
+                    playerView.player = streamPlayerManager.player
+                }
+
+            } catch {
+                print("Error: \(error.localizedDescription)")
+            }
         }
-        
-        streamPlayerManager.loadStream(url: url)
-        playerView.player = streamPlayerManager.player
+
     }
     
     // MARK: - Fullscreen Management

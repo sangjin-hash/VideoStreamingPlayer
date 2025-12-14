@@ -15,22 +15,27 @@ protocol StreamPlayerManagerDelegate: AnyObject {
 }
 
 class StreamPlayerManager {
-    
+
     // MARK: - Delegate
-    
+
     weak var delegate: StreamPlayerManagerDelegate?
-    
+
     // MARK: - Properties
-    
+
     private(set) var player: AVPlayer?
     private var playerItem: AVPlayerItem?
     private var timeObserverToken: Any?
     private var statusObservation: NSKeyValueObservation?
     private var bufferObservation: NSKeyValueObservation?
-    
+
+    private var downloadManager: HLSDownloadManager?
+    private var resourceLoaderDelegate: HLSResourceLoaderDelegate?
+
     private(set) var currentState: PlaybackState = .idle {
         didSet {
-            delegate?.playerStateDidChange(state: currentState)
+            Task { @MainActor in
+                delegate?.playerStateDidChange(state: currentState)
+            }
         }
     }
     
@@ -56,18 +61,59 @@ class StreamPlayerManager {
     }
     
     // MARK: - Public Methods
-    
-    func loadStream(url: URL) {
+
+    /// Custom HLS 스트림 로드 (AVAssetResourceLoader 방식)
+    func loadCustomHLS(masterURL: URL, bandwidth: Int = 3_000_000) async throws {
         cleanup()
         currentState = .loading
 
-        let asset = AVURLAsset(url: url)
+        // 1. HLSDownloadManager 생성
+        let manager = HLSDownloadManager()
+        self.downloadManager = manager
+
+        // 2. Master Playlist 로드
+        let masterPlaylist = try await manager.loadMasterPlaylist(from: masterURL)
+
+        // 3. 스트림 선택
+        let stream = try await manager.selectStream(bandwidth: bandwidth)
+
+        // 4. Media Playlist 로드
+        let (mediaPlaylist, playlistContent) = try await manager.loadMediaPlaylist(for: stream)
+
+        // 5. ResourceLoaderDelegate 생성 및 설정
+        let delegate = HLSResourceLoaderDelegate(downloadManager: manager)
+        delegate.setMediaPlaylist(mediaPlaylist, content: playlistContent)
+        self.resourceLoaderDelegate = delegate
+
+        // 6. Media Playlist URL을 custom scheme으로 변환
+        guard let mediaPlaylistURL = masterPlaylist.absoluteURL(for: stream.uri) else {
+            throw NSError(domain: "StreamPlayerManager", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "Failed to get media playlist URL"
+            ])
+        }
+
+        var urlComponents = URLComponents(url: mediaPlaylistURL, resolvingAgainstBaseURL: false)
+        urlComponents?.scheme = "custom-hls"
+
+        guard let customURL = urlComponents?.url else {
+            throw NSError(domain: "StreamPlayerManager", code: -2, userInfo: [
+                NSLocalizedDescriptionKey: "Failed to convert media playlist URL to custom scheme"
+            ])
+        }
+
+        // 7. AVURLAsset 생성 및 ResourceLoader 설정
+        let asset = AVURLAsset(url: customURL)
+        asset.resourceLoader.setDelegate(
+            delegate,
+            queue: DispatchQueue(label: "com.hlsplayer.resourceloader")
+        )
+
+        // 8. AVPlayerItem 및 AVPlayer 생성
         playerItem = AVPlayerItem(asset: asset)
         player = AVPlayer(playerItem: playerItem)
 
         // ABR 최적화 설정
         if let player = player {
-            // 자동으로 stalling 최소화 (버퍼링 개선)
             player.automaticallyWaitsToMinimizeStalling = true
         }
 
@@ -139,20 +185,35 @@ class StreamPlayerManager {
         // Status Observer
         statusObservation = playerItem.observe(\.status, options: [.new]) { [weak self] item, _ in
             guard let self = self else { return }
-            
+
             switch item.status {
             case .readyToPlay:
                 self.currentState = .readyToPlay
-                
+
             case .failed:
                 if let error = item.error {
+                    // AVPlayerItem errorLog 상세 확인
+                    if let errorLog = item.errorLog() {
+                        for event in errorLog.events ?? [] {
+                            print("ErrorComment: \(event.errorComment ?? "No comment")")
+                            print("ErrorDomain: \(event.errorDomain ?? "No domain")")
+                            print("ErrorCode: \(event.errorStatusCode)")
+                            print("URI: \(event.uri ?? "No URI")")
+                            if let playbackSessionID = event.playbackSessionID {
+                                print("PlaybackSessionID: \(playbackSessionID)")
+                            }
+                            if let serverAddress = event.serverAddress {
+                                print("ServerAddress: \(serverAddress)")
+                            }
+                        }
+                    }
+
                     self.currentState = .failed(error)
-                    print("Failed to play: \(error.localizedDescription)")
                 }
-                
+
             case .unknown:
-                print("Loading...")
-                
+                break
+
             @unknown default:
                 break
             }
@@ -201,17 +262,23 @@ class StreamPlayerManager {
             player?.removeTimeObserver(token)
             timeObserverToken = nil
         }
-        
+
         statusObservation?.invalidate()
         statusObservation = nil
 
         bufferObservation?.invalidate()
         bufferObservation = nil
-        
+
         player?.pause()
         player = nil
         playerItem = nil
-        
+
+        // HLS Custom 리소스 정리
+        resourceLoaderDelegate?.clearCache()
+        resourceLoaderDelegate = nil
+        downloadManager = nil
+
         currentState = .idle
     }
 }
+
