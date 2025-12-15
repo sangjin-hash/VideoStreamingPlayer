@@ -81,7 +81,7 @@ class StreamPlayerManager {
         let (mediaPlaylist, playlistContent) = try await manager.loadMediaPlaylist(for: stream)
 
         // 5. ResourceLoaderDelegate 생성 및 설정
-        let delegate = HLSResourceLoaderDelegate(downloadManager: manager)
+        let delegate = HLSResourceLoaderDelegate()
         delegate.setMediaPlaylist(mediaPlaylist, content: playlistContent)
         self.resourceLoaderDelegate = delegate
 
@@ -274,7 +274,6 @@ class StreamPlayerManager {
         playerItem = nil
 
         // HLS Custom 리소스 정리
-        resourceLoaderDelegate?.clearCache()
         resourceLoaderDelegate = nil
         downloadManager = nil
 
