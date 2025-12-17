@@ -64,9 +64,10 @@ class VideoPlayerViewController: UIViewController, UIGestureRecognizerDelegate {
     private let streamPlayerManager = StreamPlayerManager()
     
     // MARK: - Properties
-    
+
     private let testStreamURL = "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8"
-    
+    private let testDASHURL = "https://dash.akamaized.net/dash264/TestCasesUHD/2b/11/MultiRate.mpd"
+
     private var hideControlsWorkItem: DispatchWorkItem?
     private var isControlPanelVisible = true {
         didSet {
@@ -153,13 +154,14 @@ class VideoPlayerViewController: UIViewController, UIGestureRecognizerDelegate {
     private func loadTestVideo() {
         Task {
             do {
-                guard let masterURL = URL(string: testStreamURL) else {
+                // DASH 테스트
+                guard let dashURL = URL(string: testDASHURL) else {
                     return
                 }
 
-                // Custom HLS 스트림 로드
-                try await streamPlayerManager.loadCustomHLS(
-                    masterURL: masterURL,
+                // DASH 스트림 로드
+                try await streamPlayerManager.loadDASH(
+                    mpdURL: dashURL,
                     bandwidth: 3_000_000
                 )
 

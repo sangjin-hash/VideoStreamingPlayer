@@ -30,6 +30,7 @@ class StreamPlayerManager {
 
     private var downloadManager: HLSDownloadManager?
     private var resourceLoaderDelegate: HLSResourceLoaderDelegate?
+    private var dashResourceLoaderDelegate: DASHResourceLoaderDelegate?
 
     private(set) var currentState: PlaybackState = .idle {
         didSet {
@@ -119,7 +120,119 @@ class StreamPlayerManager {
 
         setupObservers()
     }
-    
+
+    /// DASH 스트림 로드 (AVAssetResourceLoader 방식)
+    func loadDASH(mpdURL: URL, bandwidth: Int = 3_000_000) async throws {
+        cleanup()
+        currentState = .loading
+
+        // 1. MPD 파일 다운로드
+        let (data, _) = try await URLSession.shared.data(from: mpdURL)
+
+        guard let xmlString = String(data: data, encoding: .utf8) else {
+            throw NSError(domain: "StreamPlayerManager", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "Failed to decode MPD file"
+            ])
+        }
+
+        // 2. MPD 파싱
+        let parser = DASHParser()
+        let mpd = try parser.parse(xmlString, baseURL: mpdURL)
+
+        // 3. Representation 선택
+        guard let representation = mpd.selectRepresentation(bandwidth: bandwidth) else {
+            throw NSError(domain: "StreamPlayerManager", code: -2, userInfo: [
+                NSLocalizedDescriptionKey: "Failed to select representation"
+            ])
+        }
+
+        // 4. 세그먼트 개수 계산
+        guard let segmentCount = mpd.totalSegmentCount(for: representation),
+              segmentCount > 0 else {
+            throw NSError(domain: "StreamPlayerManager", code: -3, userInfo: [
+                NSLocalizedDescriptionKey: "Failed to calculate segment count"
+            ])
+        }
+
+        // 5. HLS 형식의 가상 플레이리스트 생성
+        let virtualPlaylist = generateVirtualHLSPlaylist(
+            mpd: mpd,
+            representation: representation,
+            segmentCount: segmentCount
+        )
+
+        // 6. ResourceLoaderDelegate 생성 및 설정
+        let delegate = DASHResourceLoaderDelegate(
+            mpd: mpd,
+            representation: representation,
+            virtualPlaylist: virtualPlaylist
+        )
+        self.dashResourceLoaderDelegate = delegate
+
+        // 7. Custom scheme URL 생성
+        let customURL = URL(string: "custom-dash://manifest.m3u8")!
+
+        // 8. AVURLAsset 생성 및 ResourceLoader 설정
+        let asset = AVURLAsset(url: customURL)
+        asset.resourceLoader.setDelegate(
+            delegate,
+            queue: DispatchQueue(label: "com.dashplayer.resourceloader")
+        )
+
+        // 9. AVPlayerItem 및 AVPlayer 생성
+        playerItem = AVPlayerItem(asset: asset)
+        player = AVPlayer(playerItem: playerItem)
+
+        if let player = player {
+            player.automaticallyWaitsToMinimizeStalling = true
+        }
+
+        setupObservers()
+    }
+
+    /// DASH를 HLS 형식의 가상 플레이리스트로 변환
+    private func generateVirtualHLSPlaylist(
+        mpd: DASHMPD,
+        representation: DASHMPD.Representation,
+        segmentCount: Int
+    ) -> String {
+        guard let template = representation.segmentTemplate,
+              let duration = template.duration,
+              let timescale = template.timescale else {
+            return ""
+        }
+
+        let segmentDuration = Double(duration) / Double(timescale)
+        let startNumber = template.startNumber ?? 1
+
+        var playlist = "#EXTM3U\n"
+        playlist += "#EXT-X-VERSION:6\n"
+        playlist += "#EXT-X-TARGETDURATION:\(Int(ceil(segmentDuration)))\n"
+        playlist += "#EXT-X-MEDIA-SEQUENCE:0\n"
+        playlist += "#EXT-X-PLAYLIST-TYPE:VOD\n"
+        playlist += "#EXT-X-INDEPENDENT-SEGMENTS\n"
+
+        // 초기화 세그먼트
+        if let initPattern = template.initialization {
+            playlist += "#EXT-X-MAP:URI=\"\(initPattern)\"\n"
+        }
+
+        // 미디어 세그먼트
+        if let mediaPattern = template.media {
+            for i in 0..<segmentCount {
+                let segmentNumber = startNumber + i
+                // $Number$를 실제 숫자로 교체
+                let segmentURL = mediaPattern.replacingOccurrences(of: "$Number$", with: "\(segmentNumber)")
+                playlist += "#EXTINF:\(segmentDuration),\n"
+                playlist += "\(segmentURL)\n"
+            }
+        }
+
+        playlist += "#EXT-X-ENDLIST\n"
+
+        return playlist
+    }
+
     func play() {
         guard let playerItem = playerItem else { return }
 
@@ -273,8 +386,9 @@ class StreamPlayerManager {
         player = nil
         playerItem = nil
 
-        // HLS Custom 리소스 정리
+        // HLS/DASH Custom 리소스 정리
         resourceLoaderDelegate = nil
+        dashResourceLoaderDelegate = nil
         downloadManager = nil
 
         currentState = .idle
